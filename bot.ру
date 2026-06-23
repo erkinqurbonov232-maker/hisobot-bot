@@ -1,0 +1,25 @@
+import os
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
+import gspread
+from oauth2client.service_account import ServiceAccountCredentials
+
+TOKEN = "8816599630:AAHkeU3LynSXQJUrgn5244mMRm3J0037AJc"
+SHEET_NAME = os.getenv("Hisobim V2")
+
+scope = ["https://spreadsheets.google.com/feeds",'https://www.googleapis.com/auth/drive']
+creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+client = gspread.authorize(creds)
+sheet = client.open("Hisobim V2").sheet1
+
+def get_hisoblar_list(): 
+    return sheet.row_values(1)[1:]
+
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    hisoblar = get_hisoblar_list()
+    balans_dict = {h: 0 for h in hisoblar}
+    await update.message.reply_text("Bot ishga tushdi ✅")
+
+app = Application.builder().token(TOKEN).build()
+app.add_handler(CommandHandler("start", start))
+app.run_polling()
