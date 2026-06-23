@@ -8,7 +8,12 @@ TOKEN = "8816599630:AAHkeU3LynSXQJUrgn5244mMRm3J0037AJc"
 SHEET_NAME = os.getenv("Hisobim V2")
 
 scope = ["https://spreadsheets.google.com/feeds",'https://www.googleapis.com/auth/drive']
-creds = ServiceAccountCredentials.from_json_keyfile_name("credentials.json", scope)
+import json
+import os
+
+creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+creds_dict = json.loads(creds_json)
+creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 sheet = client.open("Hisobim V2").sheet1
 
