@@ -1,30 +1,57 @@
 import os
+import json
+import gspread
+from google.oauth2.service_account import ServiceAccountCredentials
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
-import gspread
-from oauth2client.service_account import ServiceAccountCredentials
+from datetime import datetime # 1. Bu shart
 
-TOKEN = "8816599630:AAHkeU3LynSXQJUrgn5244mMRm3J0037AJc"
-SHEET_NAME = os.getenv("Hisobim V2")
-
-scope = ["https://spreadsheets.google.com/feeds",'https://www.googleapis.com/auth/drive']
-import json
-import os
-
-creds_json = os.environ.get("GOOGLE_CREDENTIALS_JSON")
+# 1. TOKEN va GOOGLE ni olish
+TOKEN = os.getenv("TELEGRAM_TOKEN")
+creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 creds_dict = json.loads(creds_json)
+
+scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
 creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
-sheet = client.open("Hisobim V2").sheet1
 
-def get_hisoblar_list(): 
+# 2. Sheet nomini shu yerga yozing. Aynan shu nom bo‘lishi shart
+sheet = client.open("hisobim V2").sheet1 
+
+def get_hisoblar_list():
     return sheet.row_values(1)[1:]
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    hisoblar = get_hisoblar_list()
-    balans_dict = {h: 0 for h in hisoblar}
+    hisobar = get_hisoblar_list()
+    balans_dict = {h: 0 for h in hisobar}
     await update.message.reply_text("Bot ishga tushdi ✅")
 
+async def daromad(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        summa = context.args[0]
+        izoh = " ".join(context.args[1:]) if len(context.args) > 1 else "-"
+        data = [datetime.now().strftime("%Y-%m-%d %H:%M"), "Daromad", summa, izoh]
+        print(f"Sheetga yozilyapti: {data}") # Log uchun
+        sheet.append_row(data)
+        await update.message.reply_text(f"✅ {summa} so'm daromad yozildi")
+    except Exception as e:
+        print(f"XATO: {e}") # Xato log’da chiqadi
+        await update.message.reply_text(f"❌ Xato: {e}")
+
+async def xarajat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    try:
+        summa = context.args[0]
+        izoh = " ".join(context.args[1:]) if len(context.args) > 1 else "-"
+        data = [datetime.now().strftime("%Y-%m-%d %H:%M"), "Xarajat", summa, izoh]
+        sheet.append_row(data)
+        await update.message.reply_text(f"✅ {summa} so'm xarajat yozildi")
+    except Exception as e:
+        print(f"XATO: {e}")
+        await update.message.reply_text(f"❌ Xato: {e}")
+
+# 3. Muhimi: run_polling() eng oxirida turadi
 app = Application.builder().token(TOKEN).build()
 app.add_handler(CommandHandler("start", start))
-app.run_polling()
+app.add_handler(CommandHandler("daromad", daromad))
+app.add_handler(CommandHandler("xarajat", xarajat))
+app.run_polling() # Eng oxirgi qator
