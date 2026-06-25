@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from datetime import datetime # 1. Bu shart
 
 # 1. TOKEN va GOOGLE ni olish
-TOKEN = os.getenv("8816599630:AAHkeU3LynSXQJUrgn5244mMRm3J0037AJc")
+TOKEN = os.getenv("TELEGRAM_TOKEN")
 print(f"TOKEN VALUE: {TOKEN}") # SHUNI QO'SH
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 creds_dict = json.loads(creds_json)
