@@ -12,7 +12,7 @@ creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 creds_dict = json.loads(creds_json)
 
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
+creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
 # 2. Sheet nomini shu yerga yozing. Aynan shu nom bo‘lishi shart
