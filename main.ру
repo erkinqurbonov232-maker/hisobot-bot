@@ -7,7 +7,7 @@ from telegram.ext import Application, CommandHandler, ContextTypes
 from datetime import datetime # 1. Bu shart
 
 # 1. TOKEN va GOOGLE ni olish
-TOKEN = os.getenv("TELEGRAM_TOKEN")
+TOKEN = os.getenv("8816599630:AAHkeU3LynSXQJUrgn5244mMRm3J0037AJc")
 creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
 creds_dict = json.loads(creds_json)
 
@@ -16,7 +16,7 @@ creds = ServiceAccountCredentials.from_json_keyfile_dict(creds_dict, scope)
 client = gspread.authorize(creds)
 
 # 2. Sheet nomini shu yerga yozing. Aynan shu nom bo‘lishi shart
-sheet = client.open("hisobim V2").sheet1 
+sheet = client.open("Hisobim V2").sheet1 
 
 def get_hisoblar_list():
     return sheet.row_values(1)[1:]
