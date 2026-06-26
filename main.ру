@@ -91,6 +91,6 @@ async def main():
     site = web.TCPSite(runner, '0.0.0.0', PORT)
     await site.start()
     print(f"Bot started on port {PORT}")
-    await asyncio.Event().wait
-if__name__=="__main__":
+    await asyncio.Event().wait()
+if_name_=="_main_":
     asyncio.run(main())
