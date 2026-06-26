@@ -14,7 +14,7 @@ client = gspread.authorize(creds)
 sheet = client.open("Hisobim V2").worksheet("Tranzaksiya")
 
 KARTALAR = ["Naqd", "Humo BRB", "AVO o'z", "AVO xotin", "TBS salom", "TBS osmon", "Humo Infin"] 
-SUMMA, IZOH, KARTA_TANLA = range(3)
+SUMMA, IZOH, KARTA = range(3)
 
 async def xarajat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['tip'] = 'Xarajat' # <-- Faqat shu qatorni qo'shing
