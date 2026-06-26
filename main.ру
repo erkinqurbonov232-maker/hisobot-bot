@@ -1,27 +1,30 @@
 import os
 import json
+import asyncio
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
+from aiohttp import web # <- 1. Web server uchun qo'shildi
 
 # 1. Google Sheet ulanish - SIZDAKI NOM BILAN
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"]) # <-- _JSON BOR
-creds = Credentials.from_service_account_info(creds_json, scopes=scope) # <-- from_info
+creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"])
+creds = Credentials.from_service_account_info(creds_json, scopes=scope)
 client = gspread.authorize(creds)
 sheet = client.open("Hisobim V2").worksheet("Tranzaksiya")
 
 KARTALAR = ["Naqd", "Humo BRB", "AVO o'z", "AVO xotin", "TBS salom", "TBS osmon", "Humo Infin"] 
 SUMMA, IZOH, KARTA = range(3)
+app = None # <- 2. Global app qo'shildi
 
 async def xarajat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['tip'] = 'Xarajat' # <-- Faqat shu qatorni qo'shing
+    context.user_data['tip'] = 'Xarajat'
     await update.message.reply_text("Chiqim summasini yozing: Masalan 500")
     return SUMMA
 async def daromad_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    context.user_data['tip'] = 'Daromad' # <-- Shu qator
+    context.user_data['tip'] = 'Daromad'
     await update.message.reply_text("Kirim summasini yozing: Masalan 500000")
     return SUMMA
 async def summa_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -32,36 +35,60 @@ async def izoh_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['izoh'] = update.message.text
     keyboard = [[InlineKeyboardButton(karta, callback_data=karta)] for karta in KARTALAR]
     await update.message.reply_text("Qaysi kartadan ketdi?", reply_markup=InlineKeyboardMarkup(keyboard))
-    return KARTA_TANLA
+    return KARTA
 async def karta_tanla(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     hisob_nomi = query.data
-    tip = context.user_data['tip'] # <-- 1. Tipni oldik
+    tip = context.user_data['tip']
     summa = context.user_data['summa']
     
-    sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), tip, summa, 'Karta', hisob_nomi, context.user_data['izoh']]) # <-- 2. Tipni yozdik
+    sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), tip, summa, 'Karta', hisob_nomi, context.user_data['izoh']])
     
-    belgi = '-' if tip == 'Xarajat' else '+' # <-- 3. Belgini qo'ydik
-    await query.edit_message_text(f"✅ {hisob_nomi} {belgi}{summa} so'm") # <-- 4. Belgini chiqardik
+    belgi = '-' if tip == 'Xarajat' else '+'
+    await query.edit_message_text(f"✅ {hisob_nomi} {belgi}{summa} so'm")
     return ConversationHandler.END
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bekor qilindi.")
     return ConversationHandler.END
-
-app = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
 conv_handler = ConversationHandler(
     entry_points=[CommandHandler("xarajat", xarajat_start), CommandHandler("daromad", daromad_start)],
     states={
         SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)],
         IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)],
-        KARTA: [CallbackQueryHandler(karta_tanla)]
+        KARTA: [CallbackQueryHandler(karta_tanla)] # <- KARTA_TANLA emas, KARTA
     },
     fallbacks=[CommandHandler("cancel", cancel)],
+    per_message=False # <- 502 ni berayotgan warningni o'chiradi
 )
-app.add_handler(conv_handler)
 
-# <-- MANA SHU 4 QATOR YO'Q EDI SIZDA. QO'SHING
-if __name__ == "__name__":
-    pass   
+# --- MANA SHU YER YANGI: Webhook Server ---
+PORT = int(os.environ.get("PORT", 8080))
+TOKEN = os.environ.get("TELEGRAM_TOKEN")
+
+async def health(request): 
+    return web.Response(text="ok")
+
+async def webhook(request):
+    data = await request.json()
+    update = Update.de_json(data, app.bot)
+    await app.update_queue.put(update)
+    return web.Response(text="ok")
+
+async def main():
+    global app
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(conv_handler)
+
+    await app.initialize()
+    await app.start()
+    
+    web_app = web.Application()
+    web_app.add_routes([web.post(f'/{TOKEN}', webhook), web.get('/', health)])
+    runner = web.AppRunner(web_app)
+    await runner.setup()
+    site = web.TCPSite(runner, '0.0.0.0', PORT)
+    await site.start()
+    print(f"Bot started on port {PORT}")
+    await asyncio.Event().wait
