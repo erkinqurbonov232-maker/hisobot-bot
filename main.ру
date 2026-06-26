@@ -64,7 +64,7 @@ conv_handler = ConversationHandler(
 )
 
 # --- MANA SHU YER YANGI: Webhook Server ---
-PORT = int(os.environ.get("PORT", 8080))
+PORT = int(os.environ.get("PORT", 8000))
 TOKEN = os.environ.get("TELEGRAM_TOKEN")
 
 async def health(request): 
