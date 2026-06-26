@@ -1,58 +1,80 @@
 import os
-import json
+from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
+from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 import gspread
 from google.oauth2.service_account import Credentials
-from telegram import Update
-from telegram.ext import Application, CommandHandler, ContextTypes
-from datetime import datetime # 1. Bu shart
+from datetime import datetime
 
-# 1. TOKEN va GOOGLE ni olish
-TOKEN = os.getenv("TELEGRAM_TOKEN")
-print(f"TOKEN VALUE: {TOKEN}") # SHUNI QO'SH
-creds_json = os.getenv("GOOGLE_CREDENTIALS_JSON")
-creds_dict = json.loads(creds_json)
-
+# 1. Google Sheet ulanish
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
+creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 client = gspread.authorize(creds)
+sheet = client.open("Hisobim V2").worksheet("Tranzaksiya") # <-- ANIQ NOM
 
-# 2. Sheet nomini shu yerga yozing. Aynan shu nom bo‘lishi shart
-book = client.open("Hisobim V2") 
-sheet = book.worksheet("Tranzaksiya") # <-- ANIQ SHU NOM
-def get_hisoblar_list():
-    return sheet.row_values(1)[1:]
+# 2. Rasmizdagi 7 ta kartani shu yerga yozing
+KARTALAR = ["Naqd", "Humo BRB", "AVO o'z", "AVO xotin", "TBS salom", "TBS osmon", "Humo Infin"] 
 
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    hisobar = get_hisoblar_list()
-    balans_dict = {h: 0 for h in hisobar}
-    await update.message.reply_text("Bot ishga tushdi ✅")
+SUMMA, IZOH, KARTA_TANLA = range(3)
+
+async def xarajat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Chiqim summasini yozing: Masalan 50000")
+    return SUMMA
+
+async def summa_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['summa'] = update.message.text
+    await update.message.reply_text("Izoh yozing: Masalan non, benzin")
+    return IZOH
+
+async def izoh_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['izoh'] = update.message.text
+    keyboard = [[InlineKeyboardButton(karta, callback_data=karta)] for karta in KARTALAR] # <-- TUGMA SHU YERDAN
+    reply_markup = InlineKeyboardMarkup(keyboard)
+    await update.message.reply_text("Qaysi kartadan ketdi?", reply_markup=reply_markup)
+    return KARTA_TANLA
+
+async def karta_tanla(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    query = update.callback_query
+    await query.answer()
+    hisob_nomi = query.data
+    summa = context.user_data['summa']
+    izoh = context.user_data['izoh']
+    sana = datetime.now().strftime("%Y-%m-%d %H:%M")
+    sheet.append_row([sana, 'Xarajat', summa, 'Karta', hisob_nomi, izoh])
+    await query.edit_message_text(f"✅ Chiqim: {hisob_nomi} -{summa} so'm\nIzoh: {izoh}")
+    return ConversationHandler.END
 
 async def daromad(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        summa = context.args[0]
-        izoh = " ".join(context.args[1:]) if len(context.args) > 1 else "-"
-        data = [datetime.now().strftime("%Y-%m-%d %H:%M"), "Daromad", summa, izoh]
-        print(f"Sheetga yozilyapti: {data}") # Log uchun
-        sheet.append_row(data)
-        await update.message.reply_text(f"✅ {summa} so'm daromad yozildi")
-    except Exception as e:
-        print(f"XATO: {e}") # Xato log’da chiqadi
-        await update.message.reply_text(f"❌ Xato: {e}")
+        summa, hisob_nomi, *izoh_list = context.args
+        izoh = " ".join(izoh_list)
+        sana = datetime.now().strftime("%Y-%m-%d %H:%M")
+        sheet.append_row([sana, 'Daromad', summa, 'Karta', hisob_nomi, izoh])
+        await update.message.reply_text(f"✅ Kirim: {hisob_nomi} +{summa} so'm")
+    except:
+        await update.message.reply_text("❌ Format: /daromad 50000 Hisob_nomi Izoh")
 
-async def xarajat(update: Update, context: ContextTypes.DEFAULT_TYPE):
+async def balans(update: Update, context: ContextTypes.DEFAULT_TYPE):
     try:
-        summa = context.args[0]
-        izoh = " ".join(context.args[1:]) if len(context.args) > 1 else "-"
-        data = [datetime.now().strftime("%Y-%m-%d %H:%M"), "Xarajat", summa, izoh]
-        sheet.append_row(data)
-        await update.message.reply_text(f"✅ {summa} so'm xarajat yozildi")
-    except Exception as e:
-        print(f"XATO: {e}")
-        await update.message.reply_text(f"❌ Xato: {e}")
+        hisob_nomi = " ".join(context.args)
+        book = client.open("Hisobim V2")
+        hisobot = book.worksheet("Hisobotlar")
+        cell = hisobot.find(hisob_nomi)
+        qoldiq = hisobot.cell(cell.row, 4).value 
+        await update.message.reply_text(f"💰 {hisob_nomi} qoldiq: {qoldiq} so'm")
+    except:
+        await update.message.reply_text("❌ Format: /balans Hisob_nomi")
 
-# 3. Muhimi: run_polling() eng oxirida turadi
-app = Application.builder().token(TOKEN).build()
-app.add_handler(CommandHandler("start", start))
+async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Bekor qilindi.")
+    return ConversationHandler.END
+
+app = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
+conv_handler = ConversationHandler(
+    entry_points=[CommandHandler("xarajat", xarajat_start)],
+    states={SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)], IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)], KARTA_TANLA: [CallbackQueryHandler(karta_tanla)]},
+    fallbacks=[CommandHandler("cancel", cancel)],
+)
+app.add_handler(conv_handler)
 app.add_handler(CommandHandler("daromad", daromad))
-app.add_handler(CommandHandler("xarajat", xarajat))
-app.run_polling() # Eng oxirgi qator
+app.add_handler(CommandHandler("balans", balans))
+app.run_polling()
