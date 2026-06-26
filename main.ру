@@ -1,19 +1,20 @@
 import os
+import json # <-- json qo'shildi
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-# 1. Google Sheet ulanish
+# 1. Google Sheet ulanish - Railway uchun
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS"]) # <-- FAYL O'RNIGA VARIABLE
+creds = Credentials.from_service_account_info(creds_json, scopes=scope) # <-- from_info
 client = gspread.authorize(creds)
-sheet = client.open("Hisobim V2").worksheet("Tranzaksiya") # <-- ANIQ NOM
+sheet = client.open("Hisobim V2").worksheet("Tranzaksiya")
 
-# 2. Rasmizdagi 7 ta kartani shu yerga yozing
 KARTALAR = ["Naqd", "Humo BRB", "AVO o'z", "AVO xotin", "TBS salom", "TBS osmon", "Humo Infin"] 
-
+# ... qolgan hamma kod o'zgarishsiz qolsin
 SUMMA, IZOH, KARTA_TANLA = range(3)
 
 async def xarajat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
