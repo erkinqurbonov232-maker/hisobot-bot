@@ -92,5 +92,5 @@ async def main():
     await site.start()
     print(f"Bot started on port {PORT}")
     await asyncio.Event().wait()
-if_name_=="_main_":
+if__name__=="__main__":
     asyncio.run(main())
