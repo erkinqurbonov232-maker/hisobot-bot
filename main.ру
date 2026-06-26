@@ -17,7 +17,12 @@ KARTALAR = ["Naqd", "Humo BRB", "AVO o'z", "AVO xotin", "TBS salom", "TBS osmon"
 SUMMA, IZOH, KARTA_TANLA = range(3)
 
 async def xarajat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['tip'] = 'Xarajat' # <-- Faqat shu qatorni qo'shing
     await update.message.reply_text("Chiqim summasini yozing: Masalan 500")
+    return SUMMA
+async def daromad_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    context.user_data['tip'] = 'Daromad' # <-- Shu qator
+    await update.message.reply_text("Kirim summasini yozing: Masalan 500000")
     return SUMMA
 async def summa_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['summa'] = update.message.text
@@ -32,13 +37,21 @@ async def karta_tanla(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     hisob_nomi = query.data
-    sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), 'Xarajat', context.user_data['summa'], 'Karta', hisob_nomi, context.user_data['izoh']])
-    await query.edit_message_text(f"✅ {hisob_nomi} -{context.user_data['summa']} so'm")
+    tip = context.user_data['tip'] # <-- 1. Tipni oldik
+    summa = context.user_data['summa']
+    
+    sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), tip, summa, 'Karta', hisob_nomi, context.user_data['izoh']]) # <-- 2. Tipni yozdik
+    
+    belgi = '-' if tip == 'Xarajat' else '+' # <-- 3. Belgini qo'ydik
+    await query.edit_message_text(f"✅ {hisob_nomi} {belgi}{summa} so'm") # <-- 4. Belgini chiqardik
     return ConversationHandler.END
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bekor qilindi.")
     return ConversationHandler.END
 
 app = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
-app.add_handler(ConversationHandler(entry_points=[CommandHandler("xarajat", xarajat_start)], states={SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)], IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)], KARTA_TANLA: [CallbackQueryHandler(karta_tanla)]}, fallbacks=[CommandHandler("cancel", cancel)]))
-app.run_polling()
+app.add_handler(ConversationHandler(
+    entry_points=[CommandHandler("xarajat", xarajat_start), CommandHandler("daromad", daromad_start)], # <-- daromad_start qo'shildi
+    states={SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)], IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)], KARTA_TANLA: [CallbackQueryHandler(karta_tanla)]}, 
+    fallbacks=[CommandHandler("cancel", cancel)]
+))
