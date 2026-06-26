@@ -59,6 +59,4 @@ conv_handler = ConversationHandler(
         KARTA: [CallbackQueryHandler(karta_tanla)]
     },
     fallbacks=[CommandHandler("cancel", cancel)],
-    per_message=False, # <-- MANA SHU QATORNI O'CHIRING
-    allow_reentry=True # <-- BUNISINI QO'SHING
 )
