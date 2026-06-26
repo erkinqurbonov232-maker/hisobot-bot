@@ -50,8 +50,14 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     return ConversationHandler.END
 
 app = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
-app.add_handler(conv_Handler)
-    entry_points=[CommandHandler("xarajat", xarajat_start), CommandHandler("daromad", daromad_start)], # <-- daromad_start qo'shildi
-    states={SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)], IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)], KARTA_TANLA: [CallbackQueryHandler(karta_tanla)]}, 
+
+conv_handler = ConversationHandler( # <-- MANA SHU QATOR YO'Q EDI SIZDA
+    entry_points=[CommandHandler("xarajat", xarajat_start), CommandHandler("daromad", daromad_start)],
+    states={
+        SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)],
+        IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)],
+        KARTA: [CallbackQueryHandler(karta_tanla)]
+    },
     fallbacks=[CommandHandler("cancel", cancel)]
-))
+)
+app.add_handler(conv_handler) # <-- H kichik bo'ldi
