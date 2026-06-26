@@ -17,8 +17,8 @@ creds = Credentials.from_service_account_info(creds_dict, scopes=scope)
 client = gspread.authorize(creds)
 
 # 2. Sheet nomini shu yerga yozing. Aynan shu nom bo‘lishi shart
-sheet = client.open("Hisobim V2").sheet1 
-
+book = client.open("Hisobim V2") 
+sheet = book.worksheet("Tranzaksiya") # <-- ANIQ SHU NOM
 def get_hisoblar_list():
     return sheet.row_values(1)[1:]
 
