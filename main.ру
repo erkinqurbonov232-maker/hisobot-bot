@@ -1,34 +1,33 @@
 import os
-import json # <-- json qo'shildi
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-# 1. Google Sheet ulanish - Railway uchun
+# 1. Google Sheet ulanish - FAYL ORQALI. Sizda shu ishlayapti.
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS"]) # <-- FAYL O'RNIGA VARIABLE
-creds = Credentials.from_service_account_info(creds_json, scopes=scope) # <-- from_info
+creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
 client = gspread.authorize(creds)
 sheet = client.open("Hisobim V2").worksheet("Tranzaksiya")
 
+# 2. Rasmizdagi 7 ta karta shu yerda
 KARTALAR = ["Naqd", "Humo BRB", "AVO o'z", "AVO xotin", "TBS salom", "TBS osmon", "Humo Infin"] 
-# ... qolgan hamma kod o'zgarishsiz qolsin
-SUMMA, IZOH, KARTA_TANLA = range(3)
+
+SUMMA, IZOH, KARTA_TANLA = range(3) # 3 ta bosqich
 
 async def xarajat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Chiqim summasini yozing: Masalan 50000")
+    await update.message.reply_text("Chiqim summasini yozing: Masalan 500")
     return SUMMA
 
 async def summa_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['summa'] = update.message.text
-    await update.message.reply_text("Izoh yozing: Masalan non, benzin")
+    await update.message.reply_text("Izoh yozing: Masalan non")
     return IZOH
 
 async def izoh_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['izoh'] = update.message.text
-    keyboard = [[InlineKeyboardButton(karta, callback_data=karta)] for karta in KARTALAR] # <-- TUGMA SHU YERDAN
+    keyboard = [[InlineKeyboardButton(karta, callback_data=karta)] for karta in KARTALAR]
     reply_markup = InlineKeyboardMarkup(keyboard)
     await update.message.reply_text("Qaysi kartadan ketdi?", reply_markup=reply_markup)
     return KARTA_TANLA
