@@ -63,6 +63,6 @@ conv_handler = ConversationHandler(
 app.add_handler(conv_handler)
 
 # <-- MANA SHU 4 QATOR YO'Q EDI SIZDA. QO'SHING
-if name == 'main':
+if __name__ == __*name*__:
     print("Bot started polling...") # Logga chiqishi uchun
     app.run_polling(allowed_updates=Update.ALL_TYPES)
