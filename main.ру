@@ -51,13 +51,14 @@ async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 app = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
 
-conv_handler = ConversationHandler( # <-- MANA SHU QATOR YO'Q EDI SIZDA
+conv_handler = ConversationHandler(
     entry_points=[CommandHandler("xarajat", xarajat_start), CommandHandler("daromad", daromad_start)],
     states={
         SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)],
         IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)],
         KARTA: [CallbackQueryHandler(karta_tanla)]
     },
-    fallbacks=[CommandHandler("cancel", cancel)]
+    fallbacks=[CommandHandler("cancel", cancel)],
+    per_message=False, # <-- MANA SHU QATORNI O'CHIRING
+    allow_reentry=True # <-- BUNISINI QO'SHING
 )
-app.add_handler(conv_handler) # <-- H kichik bo'ldi
