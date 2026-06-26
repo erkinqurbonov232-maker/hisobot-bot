@@ -1,81 +1,44 @@
 import os
+import json
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import Application, CommandHandler, CallbackQueryHandler, ContextTypes, ConversationHandler, MessageHandler, filters
 import gspread
 from google.oauth2.service_account import Credentials
 from datetime import datetime
 
-# 1. Google Sheet ulanish - FAYL ORQALI. Sizda shu ishlayapti.
+# 1. Google Sheet ulanish - SIZDAKI NOM BILAN
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"]) # <-- 1. NOMI TO'G'RILANDI
-creds = Credentials.from_service_account_info(creds_json, scopes=scope) # <-- 2. from_file -> from_info
+creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"]) # <-- _JSON BOR
+creds = Credentials.from_service_account_info(creds_json, scopes=scope) # <-- from_info
 client = gspread.authorize(creds)
 sheet = client.open("Hisobim V2").worksheet("Tranzaksiya")
 
-# 2. Rasmizdagi 7 ta karta shu yerda
 KARTALAR = ["Naqd", "Humo BRB", "AVO o'z", "AVO xotin", "TBS salom", "TBS osmon", "Humo Infin"] 
-
-SUMMA, IZOH, KARTA_TANLA = range(3) # 3 ta bosqich
+SUMMA, IZOH, KARTA_TANLA = range(3)
 
 async def xarajat_start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Chiqim summasini yozing: Masalan 500")
     return SUMMA
-
 async def summa_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['summa'] = update.message.text
     await update.message.reply_text("Izoh yozing: Masalan non")
     return IZOH
-
 async def izoh_ol(update: Update, context: ContextTypes.DEFAULT_TYPE):
     context.user_data['izoh'] = update.message.text
     keyboard = [[InlineKeyboardButton(karta, callback_data=karta)] for karta in KARTALAR]
-    reply_markup = InlineKeyboardMarkup(keyboard)
-    await update.message.reply_text("Qaysi kartadan ketdi?", reply_markup=reply_markup)
+    await update.message.reply_text("Qaysi kartadan ketdi?", reply_markup=InlineKeyboardMarkup(keyboard))
     return KARTA_TANLA
-
 async def karta_tanla(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     await query.answer()
     hisob_nomi = query.data
-    summa = context.user_data['summa']
-    izoh = context.user_data['izoh']
-    sana = datetime.now().strftime("%Y-%m-%d %H:%M")
-    sheet.append_row([sana, 'Xarajat', summa, 'Karta', hisob_nomi, izoh])
-    await query.edit_message_text(f"✅ Chiqim: {hisob_nomi} -{summa} so'm\nIzoh: {izoh}")
+    sheet.append_row([datetime.now().strftime("%Y-%m-%d %H:%M"), 'Xarajat', context.user_data['summa'], 'Karta', hisob_nomi, context.user_data['izoh']])
+    await query.edit_message_text(f"✅ {hisob_nomi} -{context.user_data['summa']} so'm")
     return ConversationHandler.END
-
-async def daromad(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        summa, hisob_nomi, *izoh_list = context.args
-        izoh = " ".join(izoh_list)
-        sana = datetime.now().strftime("%Y-%m-%d %H:%M")
-        sheet.append_row([sana, 'Daromad', summa, 'Karta', hisob_nomi, izoh])
-        await update.message.reply_text(f"✅ Kirim: {hisob_nomi} +{summa} so'm")
-    except:
-        await update.message.reply_text("❌ Format: /daromad 50000 Hisob_nomi Izoh")
-
-async def balans(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    try:
-        hisob_nomi = " ".join(context.args)
-        book = client.open("Hisobim V2")
-        hisobot = book.worksheet("Hisobotlar")
-        cell = hisobot.find(hisob_nomi)
-        qoldiq = hisobot.cell(cell.row, 4).value 
-        await update.message.reply_text(f"💰 {hisob_nomi} qoldiq: {qoldiq} so'm")
-    except:
-        await update.message.reply_text("❌ Format: /balans Hisob_nomi")
-
 async def cancel(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text("Bekor qilindi.")
     return ConversationHandler.END
 
 app = Application.builder().token(os.getenv("TELEGRAM_TOKEN")).build()
-conv_handler = ConversationHandler(
-    entry_points=[CommandHandler("xarajat", xarajat_start)],
-    states={SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)], IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)], KARTA_TANLA: [CallbackQueryHandler(karta_tanla)]},
-    fallbacks=[CommandHandler("cancel", cancel)],
-)
-app.add_handler(conv_handler)
-app.add_handler(CommandHandler("daromad", daromad))
-app.add_handler(CommandHandler("balans", balans))
+app.add_handler(ConversationHandler(entry_points=[CommandHandler("xarajat", xarajat_start)], states={SUMMA: [MessageHandler(filters.TEXT & ~filters.COMMAND, summa_ol)], IZOH: [MessageHandler(filters.TEXT & ~filters.COMMAND, izoh_ol)], KARTA_TANLA: [CallbackQueryHandler(karta_tanla)]}, fallbacks=[CommandHandler("cancel", cancel)]))
 app.run_polling()
