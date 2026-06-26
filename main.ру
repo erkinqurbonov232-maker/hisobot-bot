@@ -7,7 +7,8 @@ from datetime import datetime
 
 # 1. Google Sheet ulanish - FAYL ORQALI. Sizda shu ishlayapti.
 scope = ["https://spreadsheets.google.com/feeds", "https://www.googleapis.com/auth/drive"]
-creds = Credentials.from_service_account_file("credentials.json", scopes=scope)
+creds_json = json.loads(os.environ["GOOGLE_CREDENTIALS_JSON"]) # <-- 1. NOMI TO'G'RILANDI
+creds = Credentials.from_service_account_info(creds_json, scopes=scope) # <-- 2. from_file -> from_info
 client = gspread.authorize(creds)
 sheet = client.open("Hisobim V2").worksheet("Tranzaksiya")
 
